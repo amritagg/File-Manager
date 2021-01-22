@@ -20,10 +20,12 @@ public class ListViewAdapter extends BaseAdapter {
 
     private final Context mContext;
     private final List<File> mFolderName;
+    private final boolean isList;
 
-    public ListViewAdapter(Context mContext, List<File> mFolderName) {
+    public ListViewAdapter(Context mContext, List<File> mFolderName, boolean isList) {
         this.mContext = mContext;
         this.mFolderName = mFolderName;
+        this.isList = isList;
     }
 
     @Override
@@ -49,7 +51,8 @@ public class ListViewAdapter extends BaseAdapter {
         if(convertView == null){
             LayoutInflater layoutInflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             assert layoutInflater != null;
-            convertView = layoutInflater.inflate(R.layout.list_item,null);
+            if(isList) convertView = layoutInflater.inflate(R.layout.list_item,null);
+            else convertView = layoutInflater.inflate(R.layout.grid_item, null);
         }
 
         TextView name = convertView.findViewById(R.id.name);

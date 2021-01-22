@@ -2,16 +2,22 @@ package com.example.filehandler;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
+import android.preference.PreferenceManager;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ListView;
 import android.widget.Toast;
 import java.io.File;
@@ -19,18 +25,22 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
 
-    public static final String LOG = MainActivity.class.getSimpleName();
+//    public static final String LOG = MainActivity.class.getSimpleName();
+
+    public boolean isHidden = true;
+    public boolean isList = true;
 
     List<File> folderNames;
     ListView mListView;
+    GridView mGridView;
     ListViewAdapter listadapter;
     int FoldersLocation = 0;
     File file;
     File[] f;
 
-    //        request code for permission
+//        request code for permission
     private final int REQUEST_PERMISSION_CODE = 5;
 
     @Override
@@ -45,7 +55,22 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        PreferenceManager.getDefaultSharedPreferences(this)
+                .registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        PreferenceManager.getDefaultSharedPreferences(this)
+                .unregisterOnSharedPreferenceChangeListener(this);
+    }
+
     private void show_files() {
+
         String state = Environment.getExternalStorageState();
         if (state.equals(Environment.MEDIA_MOUNTED)) {
             file = Environment.getExternalStorageDirectory();
@@ -54,14 +79,35 @@ public class MainActivity extends AppCompatActivity {
             FoldersLocation++;
             folderNames = new ArrayList<>();
 
-            if (f != null) Collections.addAll(folderNames, f);
+            isHidden = Preferences.getShowHide(this);
+            if (f != null){
+                for (File value : f) {
+                    if (isHidden) {
+                        if (!value.isHidden()) {
+                            folderNames.add(value);
+                        }
+                    } else {
+                        folderNames.add(value);
+                    }
+                }
+            }
+//                Collections.addAll(folderNames, f);
 
             mListView = findViewById(R.id.list_view);
-            listadapter = new ListViewAdapter(this, folderNames);
-            mListView.setAdapter(listadapter);
+            mGridView = findViewById(R.id.grid_view);
+            listadapter = new ListViewAdapter(this, folderNames, Preferences.getListGrid(this));
 
-            mListView.setOnItemClickListener(mOnItemClickListener);
-
+            if(Preferences.getListGrid(this)){
+                mListView.setVisibility(View.VISIBLE);
+                mGridView.setVisibility(View.GONE);
+                mListView.setAdapter(listadapter);
+                mListView.setOnItemClickListener(mOnItemClickListener);
+            }else {
+                mListView.setVisibility(View.GONE);
+                mGridView.setVisibility(View.VISIBLE);
+                mGridView.setAdapter(listadapter);
+                mGridView.setOnItemClickListener(mOnItemClickListener);
+            }
         }
     }
 
@@ -76,9 +122,22 @@ public class MainActivity extends AppCompatActivity {
                 File[] file_array = file.listFiles();
                 if (f != null) {
                     assert file_array != null;
-                    Collections.addAll(folderNames, file_array);
+                    for (File value : file_array) {
+                        if (isHidden) {
+                            if (!value.isHidden()) {
+                                folderNames.add(value);
+                            }
+                        } else {
+                            folderNames.add(value);
+                        }
+                    }
+//                    Collections.addAll(folderNames, file_array);
                 }
-                mListView.setAdapter(listadapter);
+                if(Preferences.getListGrid(getApplicationContext())){
+                    mListView.setAdapter(listadapter);
+                }else {
+                    mGridView.setAdapter(listadapter);
+                }
                 FoldersLocation++;
             } else if(file.isFile()){
                 if(ImageUtils.isImage(file.getName())){
@@ -177,10 +236,151 @@ public class MainActivity extends AppCompatActivity {
             assert file != null;
             File[] f = file.listFiles();
             folderNames.clear();
-            if (f != null) Collections.addAll(folderNames, f);
-            mListView.setAdapter(listadapter);
+            if (f != null) {
+                for (File value : f) {
+                    if (isHidden) {
+                        if (!value.isHidden()) {
+                            folderNames.add(value);
+                        }
+                    } else {
+                        folderNames.add(value);
+                    }
+                }
+//                Collections.addAll(folderNames, f);
+            }
+            isList = Preferences.getListGrid(getApplicationContext());
+            if(isList) mListView.setAdapter(listadapter);
+            else mGridView.setAdapter(listadapter);
             FoldersLocation--;
         }else super.onBackPressed();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        isList = Preferences.getListGrid(this);
+        isHidden = Preferences.getShowHide(this);
+
+        if(isHidden) menu.findItem(R.id.hide_show).setTitle(R.string.show_hidden_files);
+        else menu.findItem(R.id.hide_show).setTitle(R.string.dont_show_hidden_files);
+
+        if(isList) menu.findItem(R.id.list_grid).setTitle(R.string.grid_view);
+        else menu.findItem(R.id.list_grid).setTitle(R.string.list_view);
+
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+
+        if(item.getItemId() == R.id.new_folder){
+            show_dialog();
+            return true;
+        }else if(item.getItemId() == R.id.hide_show){
+            show_hide(item);
+            return true;
+        }else if(item.getItemId() == R.id.list_grid){
+            list_grid(item);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void show_dialog() {
+        EditText editText = new EditText(this);
+        editText.setSelected(true);
+        editText.setPadding(16, 16, 16, 16);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Enter the File name")
+                .setView(editText)
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    String name = editText.getText().toString();
+                    File new_file = new File(file.getAbsolutePath() + "/" + name);
+                    if(new_file.exists()){
+                        Toast.makeText(getApplicationContext(), "Folder name already in use", Toast.LENGTH_SHORT).show();
+                    }else {
+                        boolean result = new_file.mkdir();
+                        if(result) {
+                            Toast.makeText(getApplicationContext(), "Folder created successfully", Toast.LENGTH_SHORT).show();
+                            f = file.listFiles();
+                            folderNames.clear();
+                            if (f != null) Collections.addAll(folderNames, f);
+                            mListView.setAdapter(listadapter);
+                        }
+                        else Toast.makeText(getApplicationContext(), "Some Error occurred", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("NO", (dialog, which) -> Toast.makeText(getApplicationContext(), "The folder is not created", Toast.LENGTH_SHORT).show())
+                .show();
+    }
+
+    private void list_grid(MenuItem item){
+        isList = Preferences.getListGrid(this);
+        if(isList){
+            mListView.setVisibility(View.GONE);
+            mGridView.setVisibility(View.VISIBLE);
+            listadapter = new ListViewAdapter(this, folderNames, false);
+            mGridView.setAdapter(listadapter);
+            mGridView.setOnItemClickListener(mOnItemClickListener);
+            Preferences.setListGrid(this, false);
+            item.setTitle(getResources().getString(R.string.list_view));
+        }else {
+            mListView.setVisibility(View.VISIBLE);
+            mGridView.setVisibility(View.GONE);
+            listadapter = new ListViewAdapter(this, folderNames, true);
+            mListView.setAdapter(listadapter);
+            mListView.setOnItemClickListener(mOnItemClickListener);
+            Preferences.setListGrid(this, true);
+            item.setTitle(getResources().getString(R.string.grid_view));
+        }
+    }
+
+    private void show_hide(MenuItem item){
+        isHidden = Preferences.getShowHide(this);
+        isList = Preferences.getListGrid(this);
+        File[] file_array = file.listFiles();
+        if (f != null){
+            folderNames.clear();
+            for (File value : file_array) {
+                if (!isHidden) {
+                    if (!value.isHidden()) {
+                        folderNames.add(value);
+                    }
+                } else {
+                    folderNames.add(value);
+                }
+            }
+        }
+        if(isList) {
+            listadapter = new ListViewAdapter(this, folderNames, true);
+            mListView.setAdapter(listadapter);
+        }else {
+            listadapter = new ListViewAdapter(this, folderNames, false);
+            mGridView.setAdapter(listadapter);
+        }
+        if(isHidden){
+            Preferences.setShowHide(this, false);
+            item.setTitle(getResources().getString(R.string.dont_show_hidden_files));
+        }else {
+            Preferences.setShowHide(this, true);
+            item.setTitle(getResources().getString(R.string.show_hidden_files));
+        }
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        if(Preferences.SHOW_HIDE_KEY.equals(key)){
+            isHidden = Preferences.getShowHide(this);
+        }
+        if(Preferences.LIST_GRID_KEY.equals(key)){
+             isList = Preferences.getListGrid(this);
+        }
     }
 
     //    list of permissions required

@@ -53,7 +53,7 @@ public class VideoActivity extends AppCompatActivity {
         actionBar = getSupportActionBar();
 
         decorView = getWindow().getDecorView();
-        hide = View.SYSTEM_UI_FLAG_FULLSCREEN;
+        hide = View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
         decorView.setSystemUiVisibility(hide);
 
         show_icons = true;

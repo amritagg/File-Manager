@@ -14,12 +14,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FileHandler">
         <activity android:name=".VideoActivity"
-            android:screenOrientation="landscape"/>
+            android:screenOrientation="landscape"
+            android:parentActivityName=".MainActivity"/>
         <activity android:name=".MusicActivity"
-            android:label="@string/music"/>
+            android:label="@string/music"
+            android:parentActivityName=".MainActivity"/>
         <activity android:name=".ImageActivity"
-            android:label="@string/image_des"/>
-        <activity android:name=".MainActivity">
+            android:label="@string/image_des"
+            android:parentActivityName=".MainActivity"/>
+        <activity android:name=".MainActivity"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
