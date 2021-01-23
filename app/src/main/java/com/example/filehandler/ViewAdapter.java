@@ -2,6 +2,7 @@ package com.example.filehandler;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.media.MediaMetadataRetriever;
 import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,14 +16,19 @@ import com.bumptech.glide.Glide;
 import java.io.File;
 import java.util.List;
 
-public class ListViewAdapter extends BaseAdapter {
+public class ViewAdapter extends BaseAdapter {
 
+    private static final String LOG = ViewAdapter.class.getSimpleName();
 
     private final Context mContext;
     private final List<File> mFolderName;
     private final boolean isList;
 
-    public ListViewAdapter(Context mContext, List<File> mFolderName, boolean isList) {
+    ImageView image;
+    TextView name;
+    String name_string;
+
+    public ViewAdapter(Context mContext, List<File> mFolderName, boolean isList) {
         this.mContext = mContext;
         this.mFolderName = mFolderName;
         this.isList = isList;
@@ -44,7 +50,7 @@ public class ListViewAdapter extends BaseAdapter {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.Q)
-    @SuppressLint({"InflateParams", "UseCompatLoadingForDrawables"})
+    @SuppressLint({"InflateParams", "UseCompatLoadingForDrawables", "StaticFieldLeak"})
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
 
@@ -55,26 +61,42 @@ public class ListViewAdapter extends BaseAdapter {
             else convertView = layoutInflater.inflate(R.layout.grid_item, null);
         }
 
-        TextView name = convertView.findViewById(R.id.name);
-        ImageView image = convertView.findViewById(R.id.folder);
+        name = convertView.findViewById(R.id.name);
+        image = convertView.findViewById(R.id.folder);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
-        File file = mFolderName.get(position);
-        String name_string = file.getName();
+        File file = mFolderName.get(position).getAbsoluteFile();
+        name_string = file.getName();
         name.setText(name_string);
 
         if(!mFolderName.get(position).isDirectory()){
             if(ImageUtils.isImage(name_string)){
-                image.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_baseline_image_24));
-                Glide.with(mContext).load(file).into(image);
-            }else if(AudioUtils.isAudio(name_string)){
-                image.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_baseline_audiotrack_24));
+                Glide.with(mContext)
+                        .load(file)
+                        .placeholder(R.drawable.ic_baseline_image_24)
+                        .into(image);
+            }else if(MusicUtils.isAudio(name_string)){
+
+                MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+                retriever.setDataSource(file.getAbsolutePath());
+
+                    Glide.with(mContext)
+                            .load(retriever.getEmbeddedPicture())
+                            .error(R.drawable.ic_baseline_audiotrack_24)
+                            .placeholder(R.drawable.ic_baseline_audiotrack_24)
+                            .into(image);
+
+                retriever.release();
             }else if(VideoUtils.isVideo(name_string)){
-                image.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_baseline_videocam_24));
+
+                Glide.with(mContext)
+                        .load(file)
+                        .placeholder(R.drawable.ic_baseline_videocam_24)
+                        .error(R.drawable.ic_baseline_videocam_24)
+                        .into(image);
+
             }
-        }else {
-            image.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_baseline_folder_24));
-        }
+        }else image.setImageDrawable(ContextCompat.getDrawable(mContext, R.drawable.ic_baseline_folder_24));
 
         return convertView;
     }

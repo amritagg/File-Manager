@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
+import android.provider.MediaStore;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -19,6 +20,7 @@ import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 import java.io.File;
 import java.util.ArrayList;
@@ -35,10 +37,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     List<File> folderNames;
     ListView mListView;
     GridView mGridView;
-    ListViewAdapter listadapter;
+    ViewAdapter listadapter;
     int FoldersLocation = 0;
     File file;
     File[] f;
+    TextView nothing;
 
 //        request code for permission
     private final int REQUEST_PERMISSION_CODE = 5;
@@ -48,6 +51,8 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        nothing = findViewById(R.id.nothing);
+        nothing.setVisibility(View.VISIBLE);
 //        calling permissions method
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             checkPermissionStatus();
@@ -91,22 +96,27 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     }
                 }
             }
-//                Collections.addAll(folderNames, f);
 
-            mListView = findViewById(R.id.list_view);
-            mGridView = findViewById(R.id.grid_view);
-            listadapter = new ListViewAdapter(this, folderNames, Preferences.getListGrid(this));
-
-            if(Preferences.getListGrid(this)){
-                mListView.setVisibility(View.VISIBLE);
-                mGridView.setVisibility(View.GONE);
-                mListView.setAdapter(listadapter);
-                mListView.setOnItemClickListener(mOnItemClickListener);
+            Collections.sort(folderNames);
+            if(folderNames.size() == 0){
+                nothing.setVisibility(View.VISIBLE);
             }else {
-                mListView.setVisibility(View.GONE);
-                mGridView.setVisibility(View.VISIBLE);
-                mGridView.setAdapter(listadapter);
-                mGridView.setOnItemClickListener(mOnItemClickListener);
+                nothing.setVisibility(View.GONE);
+                mListView = findViewById(R.id.list_view);
+                mGridView = findViewById(R.id.grid_view);
+                listadapter = new ViewAdapter(this, folderNames, Preferences.getListGrid(this));
+
+                if(Preferences.getListGrid(this)){
+                    mListView.setVisibility(View.VISIBLE);
+                    mGridView.setVisibility(View.GONE);
+                    mListView.setAdapter(listadapter);
+                    mListView.setOnItemClickListener(mOnItemClickListener);
+                }else {
+                    mListView.setVisibility(View.GONE);
+                    mGridView.setVisibility(View.VISIBLE);
+                    mGridView.setAdapter(listadapter);
+                    mGridView.setOnItemClickListener(mOnItemClickListener);
+                }
             }
         }
     }
@@ -131,14 +141,23 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                             folderNames.add(value);
                         }
                     }
-//                    Collections.addAll(folderNames, file_array);
                 }
-                if(Preferences.getListGrid(getApplicationContext())){
-                    mListView.setAdapter(listadapter);
+                Collections.sort(folderNames);
+
+                if(folderNames.size() == 0){
+                    nothing.setVisibility(View.VISIBLE);
+                    mListView.setVisibility(View.GONE);
+                    mGridView.setVisibility(View.GONE);
                 }else {
-                    mGridView.setAdapter(listadapter);
+                    nothing.setVisibility(View.GONE);
+                    if(Preferences.getListGrid(getApplicationContext())){
+                        mListView.setAdapter(listadapter);
+                    }else {
+                        mGridView.setAdapter(listadapter);
+                    }
                 }
                 FoldersLocation++;
+
             } else if(file.isFile()){
                 if(ImageUtils.isImage(file.getName())){
 
@@ -168,15 +187,15 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     FoldersLocation++;
                     startActivity(intent);
 
-                } else if(AudioUtils.isAudio(file.getName())){
+                } else if(MusicUtils.isAudio(file.getName())){
 
                     ArrayList<String> uris = new ArrayList<>();
                     ArrayList<String> names = new ArrayList<>();
 
                     for(int i = 0; i < folderNames.size(); i++){
-                        if(AudioUtils.isAudio(folderNames.get(i).getName())){
-                            uris.add(AudioUtils.getUri(folderNames.get(i)));
-                            names.add(AudioUtils.getName(folderNames.get(i)));
+                        if(MusicUtils.isAudio(folderNames.get(i).getName())){
+                            uris.add(folderNames.get(i).getAbsolutePath());
+                            names.add(MusicUtils.getName(folderNames.get(i)));
                         }
                     }
 
@@ -232,6 +251,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     @Override
     public void onBackPressed() {
         if(FoldersLocation > 1){
+            nothing.setVisibility(View.GONE);
             file = file.getParentFile();
             assert file != null;
             File[] f = file.listFiles();
@@ -246,11 +266,18 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                         folderNames.add(value);
                     }
                 }
-//                Collections.addAll(folderNames, f);
+                Collections.sort(folderNames);
+
             }
             isList = Preferences.getListGrid(getApplicationContext());
-            if(isList) mListView.setAdapter(listadapter);
-            else mGridView.setAdapter(listadapter);
+            if(isList){
+                mListView.setVisibility(View.VISIBLE);
+                mListView.setAdapter(listadapter);
+            }
+            else{
+                mGridView.setVisibility(View.VISIBLE);
+                mGridView.setAdapter(listadapter);
+            }
             FoldersLocation--;
         }else super.onBackPressed();
     }
@@ -310,8 +337,26 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                             Toast.makeText(getApplicationContext(), "Folder created successfully", Toast.LENGTH_SHORT).show();
                             f = file.listFiles();
                             folderNames.clear();
-                            if (f != null) Collections.addAll(folderNames, f);
-                            mListView.setAdapter(listadapter);
+                            if (f != null) {
+                                for (File value : f) {
+                                    if (isHidden) {
+                                        if (!value.isHidden()) {
+                                            folderNames.add(value);
+                                        }
+                                    } else {
+                                        folderNames.add(value);
+                                    }
+                                }
+                            }
+                            Collections.sort(folderNames);
+
+                            if(folderNames.size() == 0){
+                                nothing.setVisibility(View.VISIBLE);
+                            }else {
+                                nothing.setVisibility(View.GONE);
+                            }
+                            if(isList) mListView.setAdapter(listadapter);
+                            else mGridView.setAdapter(listadapter);
                         }
                         else Toast.makeText(getApplicationContext(), "Some Error occurred", Toast.LENGTH_SHORT).show();
                     }
@@ -325,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         if(isList){
             mListView.setVisibility(View.GONE);
             mGridView.setVisibility(View.VISIBLE);
-            listadapter = new ListViewAdapter(this, folderNames, false);
+            listadapter = new ViewAdapter(this, folderNames, false);
             mGridView.setAdapter(listadapter);
             mGridView.setOnItemClickListener(mOnItemClickListener);
             Preferences.setListGrid(this, false);
@@ -333,7 +378,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }else {
             mListView.setVisibility(View.VISIBLE);
             mGridView.setVisibility(View.GONE);
-            listadapter = new ListViewAdapter(this, folderNames, true);
+            listadapter = new ViewAdapter(this, folderNames, true);
             mListView.setAdapter(listadapter);
             mListView.setOnItemClickListener(mOnItemClickListener);
             Preferences.setListGrid(this, true);
@@ -356,12 +401,14 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                     folderNames.add(value);
                 }
             }
+            Collections.sort(folderNames);
+
         }
         if(isList) {
-            listadapter = new ListViewAdapter(this, folderNames, true);
+            listadapter = new ViewAdapter(this, folderNames, true);
             mListView.setAdapter(listadapter);
         }else {
-            listadapter = new ListViewAdapter(this, folderNames, false);
+            listadapter = new ViewAdapter(this, folderNames, false);
             mGridView.setAdapter(listadapter);
         }
         if(isHidden){

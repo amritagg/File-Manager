@@ -14,5 +14,6 @@
     <string name="dont_show_hidden_files">Don\'t Show Hidden Files</string>
     <string name="grid_view">Grid View</string>
     <string name="list_view">List View</string>
+    <string name="nothing_found_in_this_folder">Nothing found in this folder!!</string>
 
 </resources>

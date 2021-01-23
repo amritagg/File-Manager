@@ -2,7 +2,11 @@ package com.example.filehandler;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.media.ThumbnailUtils;
 import android.os.Build;
+import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +14,9 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class MusicImageAdapter extends RecyclerView.Adapter<MusicImageAdapter.ViewHolder> {
@@ -33,7 +40,19 @@ public class MusicImageAdapter extends RecyclerView.Adapter<MusicImageAdapter.Vi
     @SuppressLint("UseCompatLoadingForDrawables")
     @Override
     public void onBindViewHolder(@NonNull MusicImageAdapter.ViewHolder holder, int position) {
-        holder.imageView.setImageDrawable(mContext.getDrawable(R.drawable.music));
+
+        File file = new File(imageUris.get(position));
+        Bitmap bitmap = null;
+        try {
+            bitmap = ThumbnailUtils.createAudioThumbnail(file,
+                    new Size(640, 640),
+                    null);
+        } catch (IOException e) {
+            Log.e("MusicImageAdapter", "The error is " + e);
+        }
+
+        if(bitmap != null) holder.imageView.setImageBitmap(bitmap);
+        else holder.imageView.setImageDrawable(mContext.getDrawable(R.drawable.music));
     }
 
     @Override
